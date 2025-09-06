@@ -32,28 +32,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     hideLoading();
 });
 
+// Update sync status based on network changes
+window.addEventListener('online', () => {
+    updateSyncStatus('syncing');
+    if (!currentUser) {
+        initializeAuth();
+    } else {
+        loadAllData();
+    }
+});
+window.addEventListener('offline', () => updateSyncStatus('offline'));
+
 // Authentication
 async function initializeAuth() {
     try {
         // Sign in anonymously for now - can be extended to support user accounts
         await auth.signInAnonymously();
-        
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                currentUser = user;
-                console.log('User authenticated:', user.uid);
-                loadAllData();
-                setupRealtimeSync();
-                updateSyncStatus('synced');
-            } else {
-                console.log('User not authenticated');
-                updateSyncStatus('offline');
-            }
-        });
     } catch (error) {
         console.error('Authentication error:', error);
-        showToast('認証エラーが発生しました', 'error');
+
+        // Handle common auth errors more gracefully
+        if (error.code === 'auth/network-request-failed') {
+            updateSyncStatus('offline');
+            showToast('ネットワークに接続できませんでした', 'error');
+        } else if (error.code === 'auth/unauthorized-domain') {
+            updateSyncStatus('error');
+            showToast('認証エラー: 許可されていないドメインです', 'error');
+        } else {
+            updateSyncStatus('error');
+            showToast('認証エラーが発生しました', 'error');
+        }
+        return; // Don't proceed with auth state listener
     }
+
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            currentUser = user;
+            console.log('User authenticated:', user.uid);
+            loadAllData();
+            setupRealtimeSync();
+            updateSyncStatus('synced');
+        } else {
+            console.log('User not authenticated');
+            updateSyncStatus('offline');
+        }
+    });
 }
 
 // Load all data
