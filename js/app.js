@@ -85,6 +85,19 @@ async function initializeAuth() {
             showToast('認証エラーが発生しました', 'error');
         }
     }
+
+    auth.onAuthStateChanged((user) => {
+        if (user) {
+            currentUser = user;
+            console.log('User authenticated:', user.uid);
+            loadAllData();
+            setupRealtimeSync();
+            updateSyncStatus('synced');
+        } else {
+            console.log('User not authenticated');
+            updateSyncStatus('offline');
+        }
+    });
 }
 
 // Load all data
