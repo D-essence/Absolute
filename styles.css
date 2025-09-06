@@ -1,0 +1,30 @@
+
+:root { --brand-from: #38bdf8; --brand-to: #6366f1; }
+.tab-btn { @apply py-2 rounded-xl text-sm font-semibold bg-white hover:bg-slate-100 border border-slate-200 shadow-soft transition; }
+.tab-btn.active { @apply bg-gradient-to-r from-sky-50 to-indigo-50 border-sky-200 text-sky-700; }
+.input { @apply w-full rounded-xl border border-slate-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 bg-white; }
+.label { @apply block text-sm font-semibold mb-1; }
+.btn-primary { @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-semibold text-white shadow-soft transition; background: linear-gradient(135deg, var(--brand-from), var(--brand-to)); }
+.btn-primary:hover { filter: brightness(0.95); }
+.btn-secondary { @apply inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-semibold bg-slate-100 hover:bg-slate-200 transition; }
+.btn-ghost { @apply inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 transition; }
+.badge { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold border; }
+.card { @apply bg-white/95 rounded-2xl p-5 shadow-soft hover:shadow-glow transition animate-fade-in; }
+.progress { @apply w-full h-2 rounded-full bg-slate-200 overflow-hidden; }
+.progress > span { @apply block h-full; background: linear-gradient(90deg, var(--brand-from), var(--brand-to)); }
+.fab { position: fixed; right: 24px; bottom: 24px; @apply rounded-full w-14 h-14 text-2xl font-bold flex items-center justify-center text-white shadow-glow; background: linear-gradient(135deg, var(--brand-from), var(--brand-to)); }
+.modal::backdrop { background: rgba(2,6,23,.45); }
+.modal { @apply rounded-2xl p-0; }
+.modal-content { @apply w-[min(720px,calc(100vw-2rem))] bg-white rounded-2xl p-6 shadow-soft animate-scale-in; }
+.row { @apply grid grid-cols-12 gap-2; }
+.row > .col-span-6 { grid-column: span 6 / span 6; }
+.row > .col-span-5 { grid-column: span 5 / span 5; }
+.row > .col-span-4 { grid-column: span 4 / span 4; }
+.row > .col-span-3 { grid-column: span 3 / span 3; }
+.row > .col-span-2 { grid-column: span 2 / span 2; }
+.row > .col-span-1 { grid-column: span 1 / span 1; }
+.empty { @apply bg-white rounded-2xl p-8 shadow-soft text-center animate-fade-in; }
+.empty-art { @apply mx-auto h-24 w-24 rounded-3xl shadow-glow; background: conic-gradient(from 180deg at 50% 50%, rgba(56,189,248,.25), rgba(99,102,241,.25)); }
+* { scrollbar-width: thin; scrollbar-color: #94a3b8 transparent; }
+*::-webkit-scrollbar { height: 10px; width: 10px; }
+*::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; }
