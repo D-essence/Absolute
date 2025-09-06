@@ -47,6 +47,25 @@ window.addEventListener('offline', () => updateSyncStatus('offline'));
 // Authentication
 async function initializeAuth() {
 
+    if (!authListenerSet) {
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                console.log('User authenticated:', user.uid);
+                loadAllData();
+                setupRealtimeSync();
+                updateSyncStatus('synced');
+            } else {
+                console.log('User not authenticated');
+                updateSyncStatus('offline');
+            }
+        });
+        authListenerSet = true;
+    }
+
+    if (auth.currentUser) return;
+
+
     try {
         // Sign in anonymously for now - can be extended to support user accounts
         await auth.signInAnonymously();
@@ -60,6 +79,11 @@ async function initializeAuth() {
         } else if (error.code === 'auth/unauthorized-domain') {
             updateSyncStatus('error');
             showToast('認証エラー: 許可されていないドメインです', 'error');
+
+        } else if (error.code === 'auth/admin-restricted-operation') {
+            updateSyncStatus('error');
+            showToast('匿名認証が無効です。Googleでログインしてください', 'error');
+
 
         } else {
             updateSyncStatus('error');
@@ -84,6 +108,7 @@ async function initializeAuth() {
 
 // Load all data
 async function loadAllData() {
+    if (!currentUser) return;
     try {
         await loadIdeals();
         await checkAndResetDailyVisions();
@@ -96,17 +121,18 @@ async function loadAllData() {
 
 // Load ideals from Firestore
 async function loadIdeals() {
+    if (!currentUser) return;
     try {
         const snapshot = await db.collection(IDEALS_COLLECTION)
             .where('userId', '==', currentUser.uid)
             .orderBy('createdAt', 'desc')
             .get();
-        
+
         idealsData = [];
         snapshot.forEach(doc => {
             idealsData.push({ id: doc.id, ...doc.data() });
         });
-        
+
         console.log('Loaded ideals:', idealsData.length);
     } catch (error) {
         console.error('Error loading ideals:', error);
@@ -116,6 +142,7 @@ async function loadIdeals() {
 
 // Setup realtime sync
 function setupRealtimeSync() {
+    if (!currentUser) return;
     // Listen to ideals collection changes
     db.collection(IDEALS_COLLECTION)
         .where('userId', '==', currentUser.uid)
@@ -152,15 +179,20 @@ function setupRealtimeSync() {
 
 // Save ideal to Firestore
 async function saveIdeal(idealData) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
-        
+
         const dataToSave = {
             ...idealData,
             userId: currentUser.uid,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-        
+
         if (idealData.id) {
             // Update existing
             await db.collection(IDEALS_COLLECTION).doc(idealData.id).update(dataToSave);
@@ -169,15 +201,19 @@ async function saveIdeal(idealData) {
             // Create new
             dataToSave.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             dataToSave.achieved = false;
-            const docRef = await db.collection(IDEALS_COLLECTION).add(dataToSave);
+            await db.collection(IDEALS_COLLECTION).add(dataToSave);
             showToast('新しい理想を追加しました', 'success');
         }
-        
+
         updateSyncStatus('synced');
         return true;
     } catch (error) {
         console.error('Error saving ideal:', error);
-        showToast('保存に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('保存に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
@@ -185,6 +221,11 @@ async function saveIdeal(idealData) {
 
 // Delete ideal
 async function deleteIdeal(idealId) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
         await db.collection(IDEALS_COLLECTION).doc(idealId).delete();
@@ -193,7 +234,11 @@ async function deleteIdeal(idealId) {
         return true;
     } catch (error) {
         console.error('Error deleting ideal:', error);
-        showToast('削除に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('削除に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
@@ -201,14 +246,19 @@ async function deleteIdeal(idealId) {
 
 // Update quest progress
 async function updateQuestProgress(idealId, questIndex, newValue) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
-        
+
         const ideal = idealsData.find(i => i.id === idealId);
-        if (!ideal) return;
-        
+        if (!ideal) return false;
+
         ideal.quests[questIndex].current = newValue;
-        
+
         // Check if quest is completed
         if (ideal.quests[questIndex].current >= ideal.quests[questIndex].target) {
             ideal.quests[questIndex].completed = true;
@@ -216,17 +266,21 @@ async function updateQuestProgress(idealId, questIndex, newValue) {
         } else {
             ideal.quests[questIndex].completed = false;
         }
-        
+
         await db.collection(IDEALS_COLLECTION).doc(idealId).update({
             quests: ideal.quests,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
+
         updateSyncStatus('synced');
         return true;
     } catch (error) {
         console.error('Error updating quest:', error);
-        showToast('クエストの更新に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('クエストの更新に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
@@ -234,21 +288,30 @@ async function updateQuestProgress(idealId, questIndex, newValue) {
 
 // Toggle ideal achievement
 async function toggleIdealAchievement(idealId, achieved) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
-        
+
         await db.collection(IDEALS_COLLECTION).doc(idealId).update({
             achieved: achieved,
             achievedAt: achieved ? firebase.firestore.FieldValue.serverTimestamp() : null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
+
         showToast(achieved ? '理想を実現済みにしました！' : '理想を未実現に戻しました', 'success');
         updateSyncStatus('synced');
         return true;
     } catch (error) {
         console.error('Error toggling achievement:', error);
-        showToast('更新に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('更新に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
@@ -256,17 +319,18 @@ async function toggleIdealAchievement(idealId, achieved) {
 
 // Daily visions management
 async function checkAndResetDailyVisions() {
+    if (!currentUser) return;
     try {
         const today = new Date().toDateString();
         const lastResetKey = `lastDailyReset_${currentUser.uid}`;
         const lastReset = localStorage.getItem(lastResetKey);
-        
+
         if (lastReset !== today) {
             // Reset all daily vision checks
             await resetDailyVisions();
             localStorage.setItem(lastResetKey, today);
         }
-        
+
         // Load today's vision status
         await loadDailyVisions();
     } catch (error) {
@@ -275,20 +339,21 @@ async function checkAndResetDailyVisions() {
 }
 
 async function resetDailyVisions() {
+    if (!currentUser) return;
     try {
         // Get all daily vision documents for current user
         const snapshot = await db.collection(DAILY_VISIONS_COLLECTION)
             .where('userId', '==', currentUser.uid)
             .where('date', '<', new Date().toDateString())
             .get();
-        
+
         // Delete old records
         const batch = db.batch();
         snapshot.forEach(doc => {
             batch.delete(doc.ref);
         });
         await batch.commit();
-        
+
         console.log('Daily visions reset completed');
     } catch (error) {
         console.error('Error resetting daily visions:', error);
@@ -296,19 +361,23 @@ async function resetDailyVisions() {
 }
 
 async function loadDailyVisions() {
+    if (!currentUser) {
+        window.completedVisions = new Set();
+        return;
+    }
     try {
         const today = new Date().toDateString();
         const snapshot = await db.collection(DAILY_VISIONS_COLLECTION)
             .where('userId', '==', currentUser.uid)
             .where('date', '==', today)
             .get();
-        
+
         const completedVisions = new Set();
         snapshot.forEach(doc => {
             const data = doc.data();
             completedVisions.add(`${data.idealId}_${data.visionIndex}`);
         });
-        
+
         window.completedVisions = completedVisions;
     } catch (error) {
         console.error('Error loading daily visions:', error);
@@ -317,11 +386,16 @@ async function loadDailyVisions() {
 }
 
 async function toggleVisionDaily(idealId, visionIndex, completed) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
         const today = new Date().toDateString();
         const visionKey = `${idealId}_${visionIndex}`;
-        
+
         if (completed) {
             // Add to completed
             await db.collection(DAILY_VISIONS_COLLECTION).add({
@@ -340,7 +414,7 @@ async function toggleVisionDaily(idealId, visionIndex, completed) {
                 .where('visionIndex', '==', visionIndex)
                 .where('date', '==', today)
                 .get();
-            
+
             const batch = db.batch();
             snapshot.forEach(doc => {
                 batch.delete(doc.ref);
@@ -348,38 +422,51 @@ async function toggleVisionDaily(idealId, visionIndex, completed) {
             await batch.commit();
             window.completedVisions.delete(visionKey);
         }
-        
+
         updateSyncStatus('synced');
         return true;
     } catch (error) {
         console.error('Error toggling vision:', error);
-        showToast('更新に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('更新に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
 }
 
 async function deleteVision(idealId, visionIndex) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
     try {
         updateSyncStatus('syncing');
-        
+
         const ideal = idealsData.find(i => i.id === idealId);
         if (!ideal) return false;
-        
+
         // Remove vision from array
         ideal.visions.splice(visionIndex, 1);
-        
+
         await db.collection(IDEALS_COLLECTION).doc(idealId).update({
             visions: ideal.visions,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        
+
         showToast('絵になる姿を削除しました', 'success');
         updateSyncStatus('synced');
         return true;
     } catch (error) {
         console.error('Error deleting vision:', error);
-        showToast('削除に失敗しました', 'error');
+        if (error.code === 'permission-denied') {
+            showToast('権限がありません。ログインしてください', 'error');
+        } else {
+            showToast('削除に失敗しました', 'error');
+        }
         updateSyncStatus('error');
         return false;
     }
