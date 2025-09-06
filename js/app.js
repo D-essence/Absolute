@@ -46,6 +46,7 @@ window.addEventListener('offline', () => updateSyncStatus('offline'));
 
 // Authentication
 async function initializeAuth() {
+
     if (!authListenerSet) {
         auth.onAuthStateChanged((user) => {
             if (user) {
@@ -64,6 +65,7 @@ async function initializeAuth() {
 
     if (auth.currentUser) return;
 
+
     try {
         // Sign in anonymously for now - can be extended to support user accounts
         await auth.signInAnonymously();
@@ -77,13 +79,17 @@ async function initializeAuth() {
         } else if (error.code === 'auth/unauthorized-domain') {
             updateSyncStatus('error');
             showToast('認証エラー: 許可されていないドメインです', 'error');
+
         } else if (error.code === 'auth/admin-restricted-operation') {
             updateSyncStatus('error');
             showToast('匿名認証が無効です。Googleでログインしてください', 'error');
+
+
         } else {
             updateSyncStatus('error');
             showToast('認証エラーが発生しました', 'error');
         }
+
     }
 
     auth.onAuthStateChanged((user) => {
