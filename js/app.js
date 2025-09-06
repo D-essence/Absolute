@@ -19,6 +19,7 @@ let currentUser = null;
 let idealsData = [];
 let currentEditingIdeal = null;
 let dailyResetTimer = null;
+let authListenerSet = false;
 
 // Collections
 const IDEALS_COLLECTION = 'ideals';
@@ -45,6 +46,7 @@ window.addEventListener('offline', () => updateSyncStatus('offline'));
 
 // Authentication
 async function initializeAuth() {
+
     try {
         // Sign in anonymously for now - can be extended to support user accounts
         await auth.signInAnonymously();
@@ -58,11 +60,12 @@ async function initializeAuth() {
         } else if (error.code === 'auth/unauthorized-domain') {
             updateSyncStatus('error');
             showToast('認証エラー: 許可されていないドメインです', 'error');
+
         } else {
             updateSyncStatus('error');
             showToast('認証エラーが発生しました', 'error');
         }
-        return; // Don't proceed with auth state listener
+
     }
 
     auth.onAuthStateChanged((user) => {
@@ -477,8 +480,11 @@ function hideLoading() {
 }
 
 function renderActiveView() {
-    const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-    
+    const activeBtn = document.querySelector('.tab-btn.active');
+    if (!activeBtn || !window.renderIdealsTab) return;
+
+    const activeTab = activeBtn.dataset.tab;
+
     switch (activeTab) {
         case 'ideals':
             window.renderIdealsTab();
@@ -489,6 +495,28 @@ function renderActiveView() {
         case 'visions':
             window.renderVisionsTab();
             break;
+    }
+}
+
+async function handleUserMenu() {
+    if (auth.currentUser && !auth.currentUser.isAnonymous) {
+        try {
+            await auth.signOut();
+            showToast('ログアウトしました', 'success');
+            await initializeAuth();
+        } catch (error) {
+            console.error('Sign-out error:', error);
+            showToast('ログアウトに失敗しました', 'error');
+        }
+    } else {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            await auth.signInWithPopup(provider);
+            showToast('Googleでログインしました', 'success');
+        } catch (error) {
+            console.error('Google sign-in error:', error);
+            showToast('Googleログインに失敗しました', 'error');
+        }
     }
 }
 
@@ -506,5 +534,6 @@ window.app = {
     showToast,
     showLoading,
     hideLoading,
-    renderActiveView
+    renderActiveView,
+    handleUserMenu
 };

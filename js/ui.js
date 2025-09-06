@@ -14,6 +14,11 @@ function setupEventListeners() {
     
     // Add ideal button
     document.getElementById('addIdealBtn').addEventListener('click', openAddIdealModal);
+
+    // User menu (sign in/out)
+    document.getElementById('userMenuBtn').addEventListener('click', () => {
+        window.app.handleUserMenu();
+    });
     
     // Modal controls
     document.getElementById('cancelModalBtn').addEventListener('click', closeIdealModal);
