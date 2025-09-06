@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本質的理想マネージャー | Your Vision Management</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen font-['Noto_Sans_JP']">
+    
+    <!-- Header -->
+    <header class="bg-white shadow-lg sticky top-0 z-40">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    <i class="fas fa-star mr-2"></i>本質的理想マネージャー
+                </h1>
+                <div class="flex items-center space-x-4">
+                    <span id="syncStatus" class="text-sm text-gray-500">
+                        <i class="fas fa-sync-alt animate-spin"></i> 同期中...
+                    </span>
+                    <button id="userMenuBtn" class="p-2 rounded-full bg-indigo-100 hover:bg-indigo-200 transition-colors">
+                        <i class="fas fa-user-circle text-indigo-600 text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="bg-white shadow-md sticky top-16 z-30">
+        <div class="container mx-auto px-4">
+            <div class="flex space-x-1">
+                <button class="tab-btn active px-6 py-3 font-medium text-gray-700 hover:text-indigo-600 border-b-2 border-transparent transition-all" data-tab="ideals">
+                    <i class="fas fa-lightbulb mr-2"></i>本質的理想
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-700 hover:text-indigo-600 border-b-2 border-transparent transition-all" data-tab="quests">
+                    <i class="fas fa-tasks mr-2"></i>クエスト一覧
+                </button>
+                <button class="tab-btn px-6 py-3 font-medium text-gray-700 hover:text-indigo-600 border-b-2 border-transparent transition-all" data-tab="visions">
+                    <i class="fas fa-image mr-2"></i>絵になる姿一覧
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        
+        <!-- 本質的理想 Tab Content -->
+        <div id="ideals-tab" class="tab-content">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">あなたの本質的理想</h2>
+                <p class="text-gray-600">リソースの制限なく、すべてが叶うとしたらやりたいこと</p>
+            </div>
+            
+            <!-- Active Ideals Grid -->
+            <div id="activeIdealsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+            
+            <!-- Achieved Ideals Section -->
+            <div id="achievedSection" class="mt-12 hidden">
+                <h3 class="text-xl font-bold text-green-600 mb-4">
+                    <i class="fas fa-check-circle mr-2"></i>実現した理想
+                </h3>
+                <div id="achievedIdealsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- クエスト一覧 Tab Content -->
+        <div id="quests-tab" class="tab-content hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">すべてのクエスト</h2>
+                <p class="text-gray-600">各理想を実現するための具体的なアクション</p>
+            </div>
+            
+            <!-- Active Quests -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-fire mr-2 text-orange-500"></i>進行中のクエスト
+                </h3>
+                <div id="activeQuestsList" class="space-y-3">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Completed Quests -->
+            <div class="bg-green-50 rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold text-green-800 mb-4">
+                    <i class="fas fa-trophy mr-2 text-yellow-500"></i>達成したクエスト
+                </h3>
+                <div id="completedQuestsList" class="space-y-3 opacity-75">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 絵になる姿一覧 Tab Content -->
+        <div id="visions-tab" class="tab-content hidden">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">絵になる姿チェックリスト</h2>
+                <p class="text-gray-600">毎日の習慣として実践する理想の姿</p>
+                <div class="mt-2 text-sm text-indigo-600">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    毎日0時にリセットされます
+                </div>
+            </div>
+            
+            <!-- Today's Visions -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-sun mr-2 text-yellow-500"></i>今日の絵になる姿
+                </h3>
+                <div id="todayVisionsList" class="space-y-3">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Completed Today -->
+            <div class="bg-green-50 rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold text-green-800 mb-4">
+                    <i class="fas fa-check-double mr-2 text-green-600"></i>今日できている姿
+                </h3>
+                <div id="completedVisionsList" class="space-y-3">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating Action Button -->
+    <button id="addIdealBtn" class="fixed bottom-8 right-8 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-full p-4 shadow-lg hover:shadow-xl transform hover:scale-110 transition-all z-20">
+        <i class="fas fa-plus text-xl"></i>
+    </button>
+
+    <!-- Add/Edit Ideal Modal -->
+    <div id="idealModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate__animated animate__fadeInUp">
+            <div class="p-6 border-b">
+                <h3 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-star mr-2 text-yellow-500"></i>
+                    <span id="modalTitle">新しい本質的理想を追加</span>
+                </h3>
+            </div>
+            
+            <form id="idealForm" class="p-6 space-y-6">
+                <!-- Title Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-heading mr-1"></i>本質的理想のタイトル
+                    </label>
+                    <input type="text" id="idealTitle" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                           placeholder="例: 健康的で活力に満ちた生活を送る">
+                </div>
+                
+                <!-- Quests Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-tasks mr-1"></i>そのためのクエスト
+                    </label>
+                    <div id="questsContainer" class="space-y-3">
+                        <!-- Dynamic quest inputs -->
+                    </div>
+                    <button type="button" id="addQuestBtn" class="mt-3 text-indigo-600 hover:text-indigo-700 font-medium">
+                        <i class="fas fa-plus-circle mr-1"></i>クエストを追加
+                    </button>
+                </div>
+                
+                <!-- Visions Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-image mr-1"></i>絵になる姿
+                    </label>
+                    <div id="visionsContainer" class="space-y-3">
+                        <!-- Dynamic vision inputs -->
+                    </div>
+                    <button type="button" id="addVisionBtn" class="mt-3 text-indigo-600 hover:text-indigo-700 font-medium">
+                        <i class="fas fa-plus-circle mr-1"></i>絵になる姿を追加
+                    </button>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" id="cancelModalBtn" 
+                            class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                        キャンセル
+                    </button>
+                    <button type="submit" 
+                            class="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all">
+                        <i class="fas fa-save mr-2"></i>保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ideal Detail Modal -->
+    <div id="idealDetailModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto animate__animated animate__fadeInUp">
+            <div class="p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-xl">
+                <h3 class="text-2xl font-bold" id="detailTitle">理想の詳細</h3>
+                <p class="text-indigo-100 mt-1" id="detailProgress">進捗: 0%</p>
+            </div>
+            
+            <div class="p-6">
+                <!-- Achievement Status -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <span class="font-medium text-gray-700">この理想は実現しましたか？</span>
+                        <button id="achievementToggle" class="relative inline-flex items-center h-6 rounded-full w-11 bg-gray-200 transition-colors">
+                            <span class="inline-block w-4 h-4 transform bg-white rounded-full transition-transform translate-x-1"></span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Quests List -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-tasks mr-2 text-indigo-600"></i>クエスト一覧
+                    </h4>
+                    <div id="detailQuestsList" class="space-y-2">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+                
+                <!-- Visions List -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">
+                        <i class="fas fa-image mr-2 text-purple-600"></i>絵になる姿一覧
+                    </h4>
+                    <div id="detailVisionsList" class="space-y-2">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+                
+                <!-- Modal Actions -->
+                <div class="flex justify-between pt-4 border-t">
+                    <button id="editIdealBtn" class="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors">
+                        <i class="fas fa-edit mr-2"></i>編集
+                    </button>
+                    <div class="space-x-3">
+                        <button id="deleteIdealBtn" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
+                            <i class="fas fa-trash mr-2"></i>削除
+                        </button>
+                        <button id="closeDetailBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+                            閉じる
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <p class="mt-4 text-gray-600">読み込み中...</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 left-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full transition-transform z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/app.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>
