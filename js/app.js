@@ -21,6 +21,9 @@ let currentEditingIdeal = null;
 let dailyResetTimer = null;
 let authListenerSet = false;
 
+// Completed visions tracker
+window.completedVisions = new Set();
+
 // Collections
 const IDEALS_COLLECTION = 'ideals';
 const DAILY_VISIONS_COLLECTION = 'daily_visions';
@@ -388,6 +391,10 @@ async function toggleVisionDaily(idealId, visionIndex, completed) {
         updateSyncStatus('syncing');
         const today = new Date().toDateString();
         const visionKey = `${idealId}_${visionIndex}`;
+
+            if (!window.completedVisions) {
+            window.completedVisions = new Set();
+        }
 
         if (completed) {
             // Add to completed
