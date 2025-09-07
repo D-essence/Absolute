@@ -54,6 +54,9 @@ async function initializeAuth() {
                 currentUser = user;
                 console.log('User authenticated:', user.uid);
                 window.updateAuthUI && window.updateAuthUI(user);
+            　　 if (!user.isAnonymous) {
+                    await ensureUserDocument(user);
+                }
                 loadAllData();
                 setupRealtimeSync();
                 updateSyncStatus('synced');
@@ -82,6 +85,18 @@ async function initializeAuth() {
             }
         });
         authListenerSet = true;
+    }
+}
+
+// Create/update user profile document for authenticated users
+async function ensureUserDocument(user) {
+    try {
+        await db.collection('users').doc(user.uid).set({
+            email: user.email || null,
+            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch (error) {
+        console.error('Failed to save user profile:', error);
     }
 }
 
