@@ -94,7 +94,6 @@ async function loadAllData() {
         renderActiveView();
     } catch (error) {
         console.error('Error loading data:', error);
-        showToast('データの読み込みに失敗しました', 'error');
     }
 }
 
