@@ -46,7 +46,6 @@ window.addEventListener('offline', () => updateSyncStatus('offline'));
 
 // Authentication
 async function initializeAuth() {
-
     if (!authListenerSet) {
         auth.onAuthStateChanged((user) => {
             if (user) {
@@ -65,7 +64,6 @@ async function initializeAuth() {
 
     if (auth.currentUser) return;
 
-
     try {
         // Sign in anonymously for now - can be extended to support user accounts
         await auth.signInAnonymously();
@@ -79,32 +77,16 @@ async function initializeAuth() {
         } else if (error.code === 'auth/unauthorized-domain') {
             updateSyncStatus('error');
             showToast('認証エラー: 許可されていないドメインです', 'error');
-
-        } else if (error.code === 'auth/admin-restricted-operation') {
+        } else if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
             updateSyncStatus('error');
             showToast('匿名認証が無効です。Googleでログインしてください', 'error');
-
-
         } else {
             updateSyncStatus('error');
             showToast('認証エラーが発生しました', 'error');
         }
-
+        return;
+　　　 }
     }
-
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            currentUser = user;
-            console.log('User authenticated:', user.uid);
-            loadAllData();
-            setupRealtimeSync();
-            updateSyncStatus('synced');
-        } else {
-            console.log('User not authenticated');
-            updateSyncStatus('offline');
-        }
-    });
-}
 
 // Load all data
 async function loadAllData() {
@@ -602,7 +584,13 @@ async function handleUserMenu() {
             showToast('Googleでログインしました', 'success');
         } catch (error) {
             console.error('Google sign-in error:', error);
-            showToast('Googleログインに失敗しました', 'error');
+            if (error.code === 'auth/unauthorized-domain') {
+                showToast('認証エラー: ドメインが許可されていません', 'error');
+            } else if (error.code === 'auth/operation-not-allowed') {
+                showToast('Googleログインが無効化されています', 'error');
+            } else {
+                showToast('Googleログインに失敗しました', 'error');
+            }
         }
     }
 }
