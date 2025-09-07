@@ -8,7 +8,7 @@ function setupEventListeners() {
     // Tab navigation
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            switchTab(e.target.dataset.tab);
+            switchTab(e.currentTarget.dataset.tab);
         });
     });
     
