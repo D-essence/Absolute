@@ -596,9 +596,14 @@ async function handleUserMenu() {
 }
 
 // Export functions for UI module
+// Use getters so the latest state is always exposed to the UI layer
 window.app = {
-    idealsData,
-    currentUser,
+    get idealsData() {
+    return idealsData;
+    },
+    get currentUser() {
+        return currentUser;
+    },
     saveIdeal,
     deleteIdeal,
     updateQuestProgress,
