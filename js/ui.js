@@ -383,6 +383,8 @@ function closeIdealModal() {
 }
 
 function addQuestInput(questData = null) {
+        // クリックイベントがそのまま渡された場合に備えて無視する
+    if (questData instanceof Event) questData = null;
     const container = document.getElementById('questsContainer');
     const inputId = questInputCount++;
     
@@ -428,6 +430,8 @@ function removeQuestInput(inputId) {
 }
 
 function addVisionInput(visionText = '') {
+        // ボタンクリックイベントが渡された場合は初期値を空にする
+    if (visionText instanceof Event) visionText = '';
     const container = document.getElementById('visionsContainer');
     const inputId = visionInputCount++;
     
@@ -438,7 +442,7 @@ function addVisionInput(visionText = '') {
     visionDiv.innerHTML = `
         <input type="text" 
                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-               placeholder="絵になる姿を入力" 
+               placeholder="絵になる姿" 
                name="vision-${inputId}"
                value="${escapeHtml(visionText)}"
                required>
