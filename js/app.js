@@ -85,8 +85,8 @@ async function initializeAuth() {
             showToast('認証エラーが発生しました', 'error');
         }
         return;
+　　　 }
     }
-}
 
 // Load all data
 async function loadAllData() {
