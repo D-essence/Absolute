@@ -34,13 +34,19 @@
                 <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                     <i class="fas fa-star mr-2"></i>究極へと至る道
                 </h1>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-4 relative">
                     <span id="syncStatus" class="text-sm text-gray-500">
                         <i class="fas fa-sync-alt animate-spin"></i> 同期中...
                     </span>
-                    <button id="userMenuBtn" class="p-2 rounded-full bg-indigo-100 hover:bg-indigo-200 transition-colors">
-                        <i class="fas fa-user-circle text-indigo-600 text-xl"></i>
-                    </button>
+                    <div id="userMenuContainer" class="relative">
+                        <button id="userMenuBtn" class="p-2 rounded-full bg-indigo-100 hover:bg-indigo-200 transition-colors">
+                            <i class="fas fa-user-circle text-indigo-600 text-xl"></i>
+                        </button>
+                        <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-2 text-sm">
+                            <div id="userStatus" class="px-4 py-2 text-gray-700">ゲスト表示</div>
+                            <button id="authActionBtn" class="w-full text-left px-4 py-2 hover:bg-gray-100">Googleでログイン</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

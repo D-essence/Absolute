@@ -47,46 +47,43 @@ window.addEventListener('offline', () => updateSyncStatus('offline'));
 // Authentication
 async function initializeAuth() {
     if (!authListenerSet) {
-        auth.onAuthStateChanged((user) => {
+        await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+        auth.onAuthStateChanged(async (user) => {
             if (user) {
                 currentUser = user;
                 console.log('User authenticated:', user.uid);
+                window.updateAuthUI && window.updateAuthUI(user);
                 loadAllData();
                 setupRealtimeSync();
                 updateSyncStatus('synced');
             } else {
+                currentUser = null;
+                window.updateAuthUI && window.updateAuthUI(null);
                 console.log('User not authenticated');
-                updateSyncStatus('offline');
+                try {
+                    await auth.signInAnonymously();
+                } catch (error) {
+                    console.error('Authentication error:', error);
+                    if (error.code === 'auth/network-request-failed') {
+                        updateSyncStatus('offline');
+                        showToast('ネットワークに接続できませんでした', 'error');
+                    } else if (error.code === 'auth/unauthorized-domain') {
+                        updateSyncStatus('error');
+                        showToast('認証エラー: 許可されていないドメインです', 'error');
+                    } else if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
+                        updateSyncStatus('error');
+                        showToast('匿名認証が無効です。Googleでログインしてください', 'error');
+                    } else {
+                        updateSyncStatus('error');
+                        showToast('認証エラーが発生しました', 'error');
+                    }
+                }
             }
         });
         authListenerSet = true;
     }
-
-    if (auth.currentUser) return;
-
-    try {
-        // Sign in anonymously for now - can be extended to support user accounts
-        await auth.signInAnonymously();
-    } catch (error) {
-        console.error('Authentication error:', error);
-
-        // Handle common auth errors more gracefully
-        if (error.code === 'auth/network-request-failed') {
-            updateSyncStatus('offline');
-            showToast('ネットワークに接続できませんでした', 'error');
-        } else if (error.code === 'auth/unauthorized-domain') {
-            updateSyncStatus('error');
-            showToast('認証エラー: 許可されていないドメインです', 'error');
-        } else if (error.code === 'auth/admin-restricted-operation' || error.code === 'auth/operation-not-allowed') {
-            updateSyncStatus('error');
-            showToast('匿名認証が無効です。Googleでログインしてください', 'error');
-        } else {
-            updateSyncStatus('error');
-            showToast('認証エラーが発生しました', 'error');
-        }
-        return;
-　　　 }
-    }
+}
 
 // Load all data
 async function loadAllData() {
@@ -572,7 +569,6 @@ async function handleUserMenu() {
         try {
             await auth.signOut();
             showToast('ログアウトしました', 'success');
-            await initializeAuth();
         } catch (error) {
             console.error('Sign-out error:', error);
             showToast('ログアウトに失敗しました', 'error');
@@ -599,7 +595,7 @@ async function handleUserMenu() {
 // Use getters so the latest state is always exposed to the UI layer
 window.app = {
     get idealsData() {
-    return idealsData;
+        return idealsData;
     },
     get currentUser() {
         return currentUser;
