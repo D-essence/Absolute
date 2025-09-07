@@ -8,15 +8,24 @@ function setupEventListeners() {
     // Tab navigation
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            switchTab(e.target.dataset.tab);
+            switchTab(e.currentTarget.dataset.tab);
         });
     });
     
     // Add ideal button
     document.getElementById('addIdealBtn').addEventListener('click', openAddIdealModal);
 
-    // User menu (sign in/out)
-    document.getElementById('userMenuBtn').addEventListener('click', () => {
+    // User menu dropdown
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const userDropdown = document.getElementById('userDropdown');
+    const authActionBtn = document.getElementById('authActionBtn');
+
+    userMenuBtn.addEventListener('click', () => {
+        userDropdown.classList.toggle('hidden');
+    });
+
+    authActionBtn.addEventListener('click', () => {
+        userDropdown.classList.add('hidden');
         window.app.handleUserMenu();
     });
     
@@ -42,6 +51,21 @@ function setupEventListeners() {
     document.getElementById('deleteIdealBtn').addEventListener('click', deleteCurrentIdeal);
     document.getElementById('achievementToggle').addEventListener('click', toggleAchievement);
 }
+
+function updateAuthUI(user) {
+    const status = document.getElementById('userStatus');
+    const authActionBtn = document.getElementById('authActionBtn');
+
+    if (user && !user.isAnonymous) {
+        status.textContent = `${user.email}でログイン中`;
+        authActionBtn.textContent = 'ログアウト';
+    } else {
+        status.textContent = 'ゲスト表示';
+        authActionBtn.textContent = 'Googleでログイン';
+    }
+}
+
+window.updateAuthUI = updateAuthUI;
 
 // Tab switching
 function switchTab(tabName) {
