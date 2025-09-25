@@ -2,6 +2,7 @@
 let activeTab = 'ideals';
 let questInputCount = 0;
 let visionInputCount = 0;
+let draggedIdealId = null;
 
 // Setup event listeners
 function setupEventListeners() {
@@ -50,6 +51,11 @@ function setupEventListeners() {
     document.getElementById('editIdealBtn').addEventListener('click', editCurrentIdeal);
     document.getElementById('deleteIdealBtn').addEventListener('click', deleteCurrentIdeal);
     document.getElementById('achievementToggle').addEventListener('click', toggleAchievement);
+
+    const pinToggleBtn = document.getElementById('pinToggleBtn');
+    if (pinToggleBtn) {
+        pinToggleBtn.addEventListener('click', togglePinnedStateFromDetail);
+    }
 }
 
 function updateAuthUI(user) {
@@ -101,8 +107,9 @@ function switchTab(tabName) {
 
 // Render Ideals Tab
 function renderIdealsTab() {
-    const activeIdeals = window.app.idealsData.filter(i => !i.achieved);
-    const achievedIdeals = window.app.idealsData.filter(i => i.achieved);
+    const sortedIdeals = window.app.getSortedIdeals();
+    const activeIdeals = sortedIdeals.filter(i => !i.achieved);
+    const achievedIdeals = sortedIdeals.filter(i => i.achieved);
     
     // Render active ideals
     const activeGrid = document.getElementById('activeIdealsGrid');
@@ -134,12 +141,25 @@ function renderIdealsTab() {
 // Create ideal card
 function createIdealCard(ideal, progress, isAchieved = false) {
     const card = document.createElement('div');
-    card.className = `bg-white rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer p-6 ${isAchieved ? 'opacity-75' : ''} animate__animated animate__fadeIn`;
-    
+    const pinnedClass = ideal.pinned && !isAchieved ? 'ring-2 ring-yellow-300' : '';
+    card.className = `bg-white rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer p-6 ${isAchieved ? 'opacity-75' : ''} ${pinnedClass} animate__animated animate__fadeIn`;
+    card.dataset.idealId = ideal.id;
+
+    if (!isAchieved) {
+        card.setAttribute('draggable', 'true');
+    }
+
     card.innerHTML = `
         <div class="flex justify-between items-start mb-4">
             <h3 class="text-lg font-semibold text-gray-800 flex-1">${escapeHtml(ideal.title)}</h3>
-            ${isAchieved ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>' : ''}
+            <div class="flex items-center space-x-2">
+                ${!isAchieved ? `
+                    <button type="button" class="pin-toggle text-gray-400 hover:text-yellow-500 transition-colors" title="${ideal.pinned ? 'ピン留めを解除' : 'ピン留めする'}">
+                        <i class="fas fa-thumbtack"></i>
+                    </button>
+                ` : ''}
+                ${isAchieved ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>' : ''}
+            </div>
         </div>
         
         <div class="space-y-3">
@@ -165,6 +185,27 @@ function createIdealCard(ideal, progress, isAchieved = false) {
         </div>
     `;
     
+    const pinToggle = card.querySelector('.pin-toggle');
+    if (pinToggle) {
+        if (ideal.pinned) {
+            pinToggle.classList.add('text-yellow-500');
+            pinToggle.classList.remove('text-gray-400');
+        }
+        pinToggle.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await window.app.toggleIdealPin(ideal.id, !ideal.pinned);
+        });
+    }
+
+    if (!isAchieved) {
+        card.addEventListener('dragstart', (e) => handleIdealDragStart(e, ideal.id));
+        card.addEventListener('dragend', handleIdealDragEnd);
+        card.addEventListener('dragover', handleIdealDragOver);
+        card.addEventListener('dragenter', handleIdealDragEnter);
+        card.addEventListener('dragleave', handleIdealDragLeave);
+        card.addEventListener('drop', (e) => handleIdealDrop(e, ideal.id));
+    }
+
     card.addEventListener('click', () => openIdealDetail(ideal));
     return card;
 }
@@ -520,10 +561,12 @@ async function handleIdealSubmit(e) {
 // Detail modal functions
 function openIdealDetail(ideal) {
     currentEditingIdeal = ideal;
-    
+
     document.getElementById('detailTitle').textContent = ideal.title;
     const progress = window.app.calculateIdealProgress(ideal);
     document.getElementById('detailProgress').textContent = `進捗: ${progress}%`;
+
+    updateDetailPinButton(ideal.pinned);
     
     // Set achievement toggle
     const toggle = document.getElementById('achievementToggle');
@@ -637,6 +680,86 @@ async function toggleAchievement() {
             toggle.querySelector('span').classList.add('translate-x-1');
         }
     }
+}
+
+async function togglePinnedStateFromDetail() {
+    if (!currentEditingIdeal) return;
+
+    const newState = !currentEditingIdeal.pinned;
+    const success = await window.app.toggleIdealPin(currentEditingIdeal.id, newState);
+
+    if (success) {
+        currentEditingIdeal.pinned = newState;
+        updateDetailPinButton(newState);
+    }
+}
+
+function updateDetailPinButton(isPinned) {
+    const btn = document.getElementById('pinToggleBtn');
+    if (!btn) return;
+
+    const icon = btn.querySelector('i');
+    const label = btn.querySelector('span');
+
+    if (isPinned) {
+        btn.classList.remove('bg-gray-200', 'text-gray-700');
+        btn.classList.add('bg-yellow-100', 'text-yellow-700');
+        icon.classList.add('text-yellow-600');
+        label.textContent = 'ピン留め中';
+        btn.title = 'ピン留めを解除';
+    } else {
+        btn.classList.remove('bg-yellow-100', 'text-yellow-700');
+        btn.classList.add('bg-gray-200', 'text-gray-700');
+        icon.classList.remove('text-yellow-600');
+        label.textContent = 'ピン留めする';
+        btn.title = 'ピン留めする';
+    }
+}
+
+function handleIdealDragStart(event, idealId) {
+    draggedIdealId = idealId;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', idealId);
+    event.currentTarget.classList.add('opacity-50');
+}
+
+function handleIdealDragEnd(event) {
+    if (event.currentTarget) {
+        event.currentTarget.classList.remove('opacity-50');
+    }
+    draggedIdealId = null;
+}
+
+function handleIdealDragOver(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+}
+
+function handleIdealDragEnter(event) {
+    event.currentTarget.classList.add('drag-over');
+}
+
+function handleIdealDragLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+}
+
+async function handleIdealDrop(event, targetId) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('drag-over');
+    if (!draggedIdealId || draggedIdealId === targetId) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const insertAfter = (event.clientY - rect.top) > rect.height / 2;
+    const sourceId = draggedIdealId;
+
+    await window.app.reorderIdeals(draggedIdealId, targetId, insertAfter ? 'after' : 'before');
+
+    const draggedCard = document.querySelector(`[data-ideal-id="${sourceId}"]`);
+    if (draggedCard) {
+        draggedCard.classList.remove('opacity-50');
+    }
+
+    draggedIdealId = null;
 }
 
 // Update functions

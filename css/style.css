@@ -62,6 +62,12 @@
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
+/* Drag and Drop Highlight */
+.drag-over {
+    outline: 3px dashed rgba(99, 102, 241, 0.45);
+    outline-offset: 6px;
+}
+
 /* Progress Bar Animation */
 @keyframes progress-bar-stripes {
     from {
