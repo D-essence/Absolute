@@ -126,8 +126,10 @@ async function loadIdeals() {
 
         idealsData = [];
         snapshot.forEach(doc => {
-            idealsData.push({ id: doc.id, ...doc.data() });
+            idealsData.push(normalizeIdealRecord({ id: doc.id, ...doc.data() }));
         });
+
+        sortIdealsInPlace();
 
         console.log('Loaded ideals:', idealsData.length);
     } catch (error) {
@@ -145,8 +147,8 @@ function setupRealtimeSync() {
         .onSnapshot((snapshot) => {
             const changes = snapshot.docChanges();
             changes.forEach((change) => {
-                const data = { id: change.doc.id, ...change.doc.data() };
-                
+                const data = normalizeIdealRecord({ id: change.doc.id, ...change.doc.data() });
+
                 if (change.type === 'added') {
                     // Check if already exists in local data
                     const exists = idealsData.find(i => i.id === data.id);
@@ -162,8 +164,9 @@ function setupRealtimeSync() {
                     idealsData = idealsData.filter(i => i.id !== data.id);
                 }
             });
-            
+
             if (changes.length > 0) {
+                sortIdealsInPlace();
                 renderActiveView();
                 updateSyncStatus('synced');
             }
@@ -197,6 +200,8 @@ async function saveIdeal(idealData) {
             // Create new
             dataToSave.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             dataToSave.achieved = false;
+            dataToSave.pinned = false;
+            dataToSave.order = Date.now();
             await db.collection(IDEALS_COLLECTION).add(dataToSave);
             showToast('新しい理想を追加しました', 'success');
         }
@@ -566,6 +571,149 @@ function hideLoading() {
     document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
+function normalizeIdealRecord(data) {
+    const normalized = { ...data };
+    normalized.pinned = !!data.pinned;
+    if (typeof data.order === 'number' && !Number.isNaN(data.order)) {
+        normalized.order = data.order;
+    } else if (data.createdAt && typeof data.createdAt.toMillis === 'function') {
+        normalized.order = data.createdAt.toMillis();
+    } else {
+        normalized.order = Date.now();
+    }
+    normalized.achieved = !!data.achieved;
+    return normalized;
+}
+
+function sortIdealsInPlace() {
+    idealsData.sort(compareIdeals);
+}
+
+function compareIdeals(a, b) {
+    const achievedDiff = (a.achieved ? 1 : 0) - (b.achieved ? 1 : 0);
+    if (achievedDiff !== 0) return achievedDiff;
+
+    const pinDiff = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+    if (pinDiff !== 0) return pinDiff;
+
+    const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+    const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+
+    const createdA = a.createdAt && typeof a.createdAt.toMillis === 'function' ? a.createdAt.toMillis() : 0;
+    const createdB = b.createdAt && typeof b.createdAt.toMillis === 'function' ? b.createdAt.toMillis() : 0;
+    return createdB - createdA;
+}
+
+function getSortedIdeals() {
+    return [...idealsData].sort(compareIdeals);
+}
+
+async function toggleIdealPin(idealId, pinned) {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
+
+    try {
+        updateSyncStatus('syncing');
+        await db.collection(IDEALS_COLLECTION).doc(idealId).update({
+            pinned,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        const ideal = idealsData.find(i => i.id === idealId);
+        if (ideal) {
+            ideal.pinned = pinned;
+        }
+
+        sortIdealsInPlace();
+        renderActiveView();
+        showToast(pinned ? '理想をピン留めしました' : 'ピン留めを解除しました', 'success');
+        updateSyncStatus('synced');
+        return true;
+    } catch (error) {
+        console.error('Error toggling pin:', error);
+        showToast('ピン留めの更新に失敗しました', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
+}
+
+async function reorderIdeals(draggedId, targetId, position = 'before') {
+    if (!currentUser) {
+        showToast('ログインが必要です', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
+
+    const activeIdeals = getSortedIdeals().filter(i => !i.achieved);
+    const draggedIndex = activeIdeals.findIndex(i => i.id === draggedId);
+    const targetIndex = activeIdeals.findIndex(i => i.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+        return false;
+    }
+
+    const draggedIdeal = activeIdeals[draggedIndex];
+    const targetIdeal = activeIdeals[targetIndex];
+
+    if (draggedIdeal.pinned !== targetIdeal.pinned) {
+        showToast('ピン留め状態が異なる理想の間では並び替えできません', 'info');
+        return false;
+    }
+
+    updateSyncStatus('syncing');
+
+    activeIdeals.splice(draggedIndex, 1);
+    let insertIndex = activeIdeals.findIndex(i => i.id === targetId);
+    if (position === 'after') {
+        insertIndex += 1;
+    }
+    if (insertIndex < 0) {
+        insertIndex = 0;
+    }
+    activeIdeals.splice(insertIndex, 0, draggedIdeal);
+
+    const pinnedIdeals = activeIdeals.filter(i => i.pinned);
+    const unpinnedIdeals = activeIdeals.filter(i => !i.pinned);
+    const finalOrder = [...pinnedIdeals, ...unpinnedIdeals];
+
+    try {
+        const batch = db.batch();
+        let hasChanges = false;
+
+        finalOrder.forEach((ideal, index) => {
+            const globalIdeal = idealsData.find(i => i.id === ideal.id);
+            if (!globalIdeal) return;
+
+            if (globalIdeal.order !== index) {
+                hasChanges = true;
+                globalIdeal.order = index;
+                batch.update(db.collection(IDEALS_COLLECTION).doc(ideal.id), {
+                    order: index,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        });
+
+        if (hasChanges) {
+            await batch.commit();
+        }
+
+        sortIdealsInPlace();
+        renderActiveView();
+        updateSyncStatus('synced');
+        return true;
+    } catch (error) {
+        console.error('Error reordering ideals:', error);
+        showToast('並び替えに失敗しました', 'error');
+        updateSyncStatus('error');
+        return false;
+    }
+}
+
 function renderActiveView() {
     const activeBtn = document.querySelector('.tab-btn.active');
     if (!activeBtn || !window.renderIdealsTab) return;
@@ -627,6 +775,9 @@ window.app = {
     toggleIdealAchievement,
     toggleVisionDaily,
     deleteVision,
+    toggleIdealPin,
+    reorderIdeals,
+    getSortedIdeals,
     calculateIdealProgress,
     showToast,
     showLoading,
